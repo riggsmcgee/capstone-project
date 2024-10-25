@@ -1,5 +1,4 @@
-// server.js
-require('dotenv').config();
+/* require('dotenv').config();
 const app = require('./app');
 const { PrismaClient } = require('@prisma/client');
 
@@ -13,7 +12,7 @@ async function startServer() {
     console.log('Successfully connected to database');
 
     app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+      console.log(`Server is running at http://localhost:${PORT}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
@@ -29,3 +28,4 @@ process.on('SIGTERM', async () => {
   await prisma.$disconnect();
   process.exit(0);
 });
+ */
