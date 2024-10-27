@@ -265,15 +265,274 @@ app.patch('/api/users/:id/role', async (req, res) => {
 });
 
 // –– Query routes ––
+// Get all queries ✓
+app.get('/api/queries', async (req, res) => {
+  try {
+    const queries = await prisma.query.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+          },
+        },
+        type: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
 
-// create query
-app.post('/api/queries', (req, res) => {
-  res.json({ message: 'Create query' });
+    res.json(queries);
+  } catch (error) {
+    console.error('Error fetching queries:', error);
+    res.status(500).json({ error: 'Failed to fetch queries' });
+  }
 });
 
-// get query history
-app.get('/api/queries/history', (req, res) => {
-  res.json({ message: 'Get query history' });
+// Get queries by user ID
+app.get('/api/queries/user/:userId', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const queries = await prisma.query.findMany({
+      where: {
+        userId: userId,
+      },
+      include: {
+        type: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    res.json(queries);
+  } catch (error) {
+    console.error('Error fetching user queries:', error);
+    res.status(500).json({ error: 'Failed to fetch user queries' });
+  }
+});
+
+// Create a new query ✓
+app.post('/api/queries', async (req, res) => {
+  try {
+    const { userId, content, typeId } = req.body;
+
+    // Validate request body
+    if (!userId || !content || !typeId) {
+      return res.status(400).json({
+        error:
+          'Missing required fields: userId, content, and typeId are required',
+      });
+    }
+
+    // Verify user exists
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(userId) },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Create the query
+    const query = await prisma.query.create({
+      data: {
+        userId: parseInt(userId),
+        content,
+        typeId: parseInt(typeId),
+      },
+      include: {
+        user: {
+          select: {
+            username: true,
+          },
+        },
+        type: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    res.status(201).json(query);
+  } catch (error) {
+    console.error('Error creating query:', error);
+    res.status(500).json({ error: 'Failed to create query' });
+  }
+});
+
+// Get query history with pagination and filters
+app.get('/api/queries/history', async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      userId,
+      typeId,
+      startDate,
+      endDate,
+    } = req.query;
+
+    // Build filter conditions
+    const where = {};
+
+    if (userId) {
+      where.userId = parseInt(userId);
+    }
+
+    if (typeId) {
+      where.typeId = parseInt(typeId);
+    }
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) {
+        where.createdAt.gte = new Date(startDate);
+      }
+      if (endDate) {
+        where.createdAt.lte = new Date(endDate);
+      }
+    }
+
+    // Get total count for pagination
+    const total = await prisma.query.count({ where });
+
+    // Get paginated queries
+    const queries = await prisma.query.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            username: true,
+          },
+        },
+        type: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip: (parseInt(page) - 1) * parseInt(limit),
+      take: parseInt(limit),
+    });
+
+    res.json({
+      queries,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching query history:', error);
+    res.status(500).json({ error: 'Failed to fetch query history' });
+  }
+});
+
+// Get query analytics
+app.get('/api/queries/analytics', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    // Build date filter
+    const dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) {
+        dateFilter.createdAt.gte = new Date(startDate);
+      }
+      if (endDate) {
+        dateFilter.createdAt.lte = new Date(endDate);
+      }
+    }
+
+    // Get various analytics
+    const [totalQueries, queriesByType, queriesByUser, recentActivityTrend] =
+      await Promise.all([
+        // Total number of queries
+        prisma.query.count({
+          where: dateFilter,
+        }),
+
+        // Queries grouped by type
+        prisma.query.groupBy({
+          by: ['typeId'],
+          where: dateFilter,
+          _count: true,
+          orderBy: {
+            _count: {
+              typeId: 'desc',
+            },
+          },
+        }),
+
+        // Top users by query count
+        prisma.query.groupBy({
+          by: ['userId'],
+          where: dateFilter,
+          _count: true,
+          orderBy: {
+            _count: {
+              userId: 'desc',
+            },
+          },
+          take: 5,
+        }),
+
+        // Query activity by day (last 7 days)
+        prisma.query.groupBy({
+          by: ['createdAt'],
+          where: {
+            createdAt: {
+              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+            },
+          },
+          _count: true,
+          orderBy: {
+            createdAt: 'asc',
+          },
+        }),
+      ]);
+
+    res.json({
+      totalQueries,
+      queriesByType,
+      topUsers: queriesByUser,
+      recentActivity: recentActivityTrend,
+    });
+  } catch (error) {
+    console.error('Error fetching query analytics:', error);
+    res.status(500).json({ error: 'Failed to fetch query analytics' });
+  }
 });
 
 // –– Calendar routes ––
