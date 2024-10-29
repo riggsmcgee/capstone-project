@@ -536,19 +536,270 @@ app.get('/api/queries/analytics', async (req, res) => {
 });
 
 // –– Calendar routes ––
-// get calendar
-app.get('/api/calendar', (req, res) => {
-  res.json({ message: 'Get calendar' });
+
+// Calendar Routes
+// Get all calendars ✓
+app.get('/api/calendar', async (req, res) => {
+  try {
+    const calendars = await prisma.calendar.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+          },
+        },
+      },
+    });
+    res.json(calendars);
+  } catch (error) {
+    console.error('Error fetching calendars:', error);
+    res.status(500).json({ error: 'Failed to fetch calendars' });
+  }
 });
 
-// post calendar
-app.post('/api/calendar', (req, res) => {
-  res.json({ message: 'Create calendar event' });
+// Get calendar by user ID ✓
+app.get('/api/calendar/user/:userId', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    const calendar = await prisma.calendar.findFirst({
+      where: {
+        userId: userId,
+      },
+      include: {
+        user: {
+          select: {
+            username: true,
+          },
+        },
+      },
+    });
+
+    if (!calendar) {
+      return res
+        .status(404)
+        .json({ error: 'Calendar not found for this user' });
+    }
+
+    res.json(calendar);
+  } catch (error) {
+    console.error('Error fetching user calendar:', error);
+    res.status(500).json({ error: 'Failed to fetch user calendar' });
+  }
 });
 
-// update calendar
-app.put('/api/calendar/:id', (req, res) => {
-  res.json({ message: `Update calendar event with id ${req.params.id}` });
+// Get multiple users' calendars
+app.get('/api/calendar/users', async (req, res) => {
+  try {
+    const userIds = req.query.userIds;
+
+    if (!userIds) {
+      return res.status(400).json({ error: 'User IDs are required' });
+    }
+
+    // Convert string of comma-separated IDs to array of integers
+    const userIdArray = userIds.split(',').map((id) => parseInt(id));
+
+    // Validate all IDs are numbers
+    if (userIdArray.some(isNaN)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+
+    const calendars = await prisma.calendar.findMany({
+      where: {
+        userId: {
+          in: userIdArray,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+          },
+        },
+      },
+    });
+
+    res.json(calendars);
+  } catch (error) {
+    console.error('Error fetching multiple user calendars:', error);
+    res.status(500).json({ error: 'Failed to fetch user calendars' });
+  }
+});
+
+// Create calendar ✓
+app.post('/api/calendar', async (req, res) => {
+  try {
+    const { userId, availability } = req.body;
+
+    if (!userId || !availability) {
+      return res.status(400).json({
+        error: 'Missing required fields: userId and availability are required',
+      });
+    }
+
+    // Verify user exists
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(userId) },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if user already has a calendar
+    const existingCalendar = await prisma.calendar.findFirst({
+      where: { userId: parseInt(userId) },
+    });
+
+    if (existingCalendar) {
+      return res.status(400).json({ error: 'User already has a calendar' });
+    }
+
+    const calendar = await prisma.calendar.create({
+      data: {
+        userId: parseInt(userId),
+        availability,
+      },
+      include: {
+        user: {
+          select: {
+            username: true,
+          },
+        },
+      },
+    });
+
+    res.status(201).json(calendar);
+  } catch (error) {
+    console.error('Error creating calendar:', error);
+    res.status(500).json({ error: 'Failed to create calendar' });
+  }
+});
+
+// Update entire calendar
+app.put('/api/calendar/:id', async (req, res) => {
+  try {
+    const calendarId = parseInt(req.params.id);
+    const { availability } = req.body;
+
+    if (isNaN(calendarId)) {
+      return res.status(400).json({ error: 'Invalid calendar ID' });
+    }
+
+    if (!availability) {
+      return res.status(400).json({ error: 'Availability is required' });
+    }
+
+    // Check if calendar exists
+    const existingCalendar = await prisma.calendar.findUnique({
+      where: { id: calendarId },
+    });
+
+    if (!existingCalendar) {
+      return res.status(404).json({ error: 'Calendar not found' });
+    }
+
+    const updatedCalendar = await prisma.calendar.update({
+      where: { id: calendarId },
+      data: {
+        availability,
+      },
+      include: {
+        user: {
+          select: {
+            username: true,
+          },
+        },
+      },
+    });
+
+    res.json(updatedCalendar);
+  } catch (error) {
+    console.error('Error updating calendar:', error);
+    res.status(500).json({ error: 'Failed to update calendar' });
+  }
+});
+
+// Patch calendar (partial update) not working
+/* app.patch('/api/calendar/:id', async (req, res) => {
+  try {
+    const calendarId = parseInt(req.params.id);
+    const { availability } = req.body;
+
+    if (isNaN(calendarId)) {
+      return res.status(400).json({ error: 'Invalid calendar ID' });
+    }
+
+    // Check if calendar exists
+    const existingCalendar = await prisma.calendar.findUnique({
+      where: { id: calendarId },
+    });
+
+    if (!existingCalendar) {
+      return res.status(404).json({ error: 'Calendar not found' });
+    }
+
+    // Merge existing availability with new availability
+    const updatedAvailability = {
+      ...existingCalendar.availability,
+      ...availability,
+    };
+
+    const updatedCalendar = await prisma.calendar.update({
+      where: { id: calendarId },
+      data: {
+        availability: updatedAvailability,
+      },
+      include: {
+        user: {
+          select: {
+            username: true,
+          },
+        },
+      },
+    });
+
+    res.json(updatedCalendar);
+  } catch (error) {
+    console.error('Error patching calendar:', error);
+    res.status(500).json({ error: 'Failed to patch calendar' });
+  }
+}); */
+
+// Delete calendar ✓
+app.delete('/api/calendar/:id', async (req, res) => {
+  try {
+    const calendarId = parseInt(req.params.id);
+
+    if (isNaN(calendarId)) {
+      return res.status(400).json({ error: 'Invalid calendar ID' });
+    }
+
+    // Check if calendar exists
+    const existingCalendar = await prisma.calendar.findUnique({
+      where: { id: calendarId },
+    });
+
+    if (!existingCalendar) {
+      return res.status(404).json({ error: 'Calendar not found' });
+    }
+
+    await prisma.calendar.delete({
+      where: { id: calendarId },
+    });
+
+    res.json({ message: 'Calendar deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting calendar:', error);
+    res.status(500).json({ error: 'Failed to delete calendar' });
+  }
 });
 
 // Error handling middleware
