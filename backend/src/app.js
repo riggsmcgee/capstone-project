@@ -4,9 +4,16 @@ const port = 3000;
 const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const aiService = require('./services/mockAiService');
+
+const cors = require('./middleware/cors');
+const errorHandler = require('./middleware/errorHandler');
+const { authenticateToken, generateToken } = require('./middleware/auth');
 
 // Middleware
 app.use(express.json());
+
+console.log('Hello World');
 
 // –– User routes ––
 
@@ -182,7 +189,7 @@ app.delete('/api/users/:id', async (req, res) => {
   res.json({ message: 'User deleted successfully' });
 });
 
-// login user ✓
+// login user
 app.post('/api/users/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -210,8 +217,17 @@ app.post('/api/users/login', async (req, res) => {
     if (!passwordMatch) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
+    const token = generateToken(user);
 
-    res.json({ message: 'Login successful' });
+    res.json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.roleId,
+      },
+    });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
@@ -221,14 +237,6 @@ app.post('/api/users/login', async (req, res) => {
 // logout (not working)
 /* app.post('/api/users/logout', (req, res) => {
   // res.json({ message: 'Logout' });
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Logout error:', err);
-      res.status(500).json({ error: 'Logout failed' });
-    } else {
-      res.json({ message: 'Logout successful' });
-    }
-  });
 }); */
 
 // change user role ✓
@@ -633,14 +641,14 @@ app.get('/api/calendar/users', async (req, res) => {
   }
 });
 
-// Create calendar ✓
+// Create calendar
 app.post('/api/calendar', async (req, res) => {
   try {
-    const { userId, availability } = req.body;
+    const { userId, calendarInput } = req.body;
 
-    if (!userId || !availability) {
+    if (!userId || !calendarInput) {
       return res.status(400).json({
-        error: 'Missing required fields: userId and availability are required',
+        error: 'Missing required fields: userId and calendarInput are required',
       });
     }
 
@@ -662,10 +670,16 @@ app.post('/api/calendar', async (req, res) => {
       return res.status(400).json({ error: 'User already has a calendar' });
     }
 
+    // Process calendar input using AI
+    const processedAvailability = await aiService.processCalendarInput(
+      calendarInput
+    );
+
+    // Create calendar with processed availability
     const calendar = await prisma.calendar.create({
       data: {
         userId: parseInt(userId),
-        availability,
+        availability: processedAvailability,
       },
       include: {
         user: {
@@ -807,6 +821,12 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Something went wrong!' });
 });
+
+app.use(cors);
+
+app.use('/api/calendar', authenticateToken);
+app.use('/api/queries', authenticateToken);
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
