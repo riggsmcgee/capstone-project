@@ -1,33 +1,57 @@
 const express = require('express');
-const app = express();
-const port = 3000;
+const cors = require('cors');
 const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const aiService = require('./services/mockAiService');
 
-const cors = require('./middleware/cors');
-const errorHandler = require('./middleware/errorHandler');
 const { authenticateToken, generateToken } = require('./middleware/auth');
+const errorHandler = require('./middleware/errorHandler');
+
+const app = express();
+const port = 3000;
+
+const allowedOrigins = [
+  'http://localhost:5173', // Frontend during development
+  'http://localhost:3000',
+  'https://your-production-frontend.com', // Frontend in production
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg =
+        'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+};
 
 // Middleware
+app.use(cors());
 app.use(express.json());
 
 console.log('Hello World');
+
+// app.use('/api/calendar', authenticateToken);
+// app.use('/api/queries', authenticateToken);
 
 // –– User routes ––
 
 // get users ✓
 app.get('/api/users', async (req, res) => {
-  // res.json({ message: 'Get all users' });
   const users = await prisma.user.findMany();
   res.json(users);
 });
 
 // get user by id ✓
 app.get('/api/users/:id', async (req, res) => {
-  // res.json({ message: `Get user with id ${req.params.id}` });
-
   const userId = parseInt(req.params.id);
 
   if (isNaN(userId)) {
@@ -82,7 +106,7 @@ app.post('/api/users/register', async (req, res) => {
       data: {
         username,
         passwordHash: hashedPassword,
-        roleId: 2, // Assuming 2 is the USER role ID from your seed file
+        roleId: 2, // User Role
       },
     });
 
@@ -99,8 +123,6 @@ app.post('/api/users/register', async (req, res) => {
 
 // update user (have to change username and password) ✓
 app.put('/api/users/:id', async (req, res) => {
-  // res.json({ message: `Update user with id ${req.params.id}` });
-
   const userId = parseInt(req.params.id);
 
   if (isNaN(userId)) {
@@ -133,8 +155,6 @@ app.put('/api/users/:id', async (req, res) => {
 
 // patch user (can change username or password)  ✓
 app.patch('/api/users/:id', async (req, res) => {
-  // res.json({ message: `Patch user with id ${req.params.id}` });
-
   const userId = parseInt(req.params.id);
 
   if (isNaN(userId)) {
@@ -167,8 +187,6 @@ app.patch('/api/users/:id', async (req, res) => {
 
 // delete user ✓
 app.delete('/api/users/:id', async (req, res) => {
-  // res.json({ message: `Delete user with id ${req.params.id}` });
-
   const userId = parseInt(req.params.id);
 
   if (isNaN(userId)) {
@@ -241,8 +259,6 @@ app.post('/api/users/login', async (req, res) => {
 
 // change user role ✓
 app.patch('/api/users/:id/role', async (req, res) => {
-  // res.json({ message: `Change user role with id ${req.params.id}` });
-
   const userId = parseInt(req.params.id);
 
   if (isNaN(userId)) {
@@ -741,52 +757,6 @@ app.put('/api/calendar/:id', async (req, res) => {
   }
 });
 
-// Patch calendar (partial update) not working
-/* app.patch('/api/calendar/:id', async (req, res) => {
-  try {
-    const calendarId = parseInt(req.params.id);
-    const { availability } = req.body;
-
-    if (isNaN(calendarId)) {
-      return res.status(400).json({ error: 'Invalid calendar ID' });
-    }
-
-    // Check if calendar exists
-    const existingCalendar = await prisma.calendar.findUnique({
-      where: { id: calendarId },
-    });
-
-    if (!existingCalendar) {
-      return res.status(404).json({ error: 'Calendar not found' });
-    }
-
-    // Merge existing availability with new availability
-    const updatedAvailability = {
-      ...existingCalendar.availability,
-      ...availability,
-    };
-
-    const updatedCalendar = await prisma.calendar.update({
-      where: { id: calendarId },
-      data: {
-        availability: updatedAvailability,
-      },
-      include: {
-        user: {
-          select: {
-            username: true,
-          },
-        },
-      },
-    });
-
-    res.json(updatedCalendar);
-  } catch (error) {
-    console.error('Error patching calendar:', error);
-    res.status(500).json({ error: 'Failed to patch calendar' });
-  }
-}); */
-
 // Delete calendar ✓
 app.delete('/api/calendar/:id', async (req, res) => {
   try {
@@ -817,15 +787,6 @@ app.delete('/api/calendar/:id', async (req, res) => {
 });
 
 // Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
-});
-
-app.use(cors);
-
-app.use('/api/calendar', authenticateToken);
-app.use('/api/queries', authenticateToken);
 app.use(errorHandler);
 
 app.listen(port, () => {

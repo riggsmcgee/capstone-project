@@ -1,4 +1,4 @@
-/* require('dotenv').config();
+require('dotenv').config();
 const app = require('./app');
 const { PrismaClient } = require('@prisma/client');
 
@@ -28,4 +28,3 @@ process.on('SIGTERM', async () => {
   await prisma.$disconnect();
   process.exit(0);
 });
- */

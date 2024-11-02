@@ -4,8 +4,34 @@ const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient();
 
+const cleanDatabase = async () => {
+  try {
+    console.log('Cleaning up existing data...');
+
+    // Delete all data from tables
+    await prisma.query.deleteMany({});
+    await prisma.calendar.deleteMany({});
+    await prisma.user.deleteMany({});
+    await prisma.queryType.deleteMany({});
+    await prisma.role.deleteMany({});
+
+    // Reset the autoincrement sequences
+    await prisma.$executeRaw`ALTER SEQUENCE "Role_id_seq" RESTART WITH 1;`;
+    await prisma.$executeRaw`ALTER SEQUENCE "User_id_seq" RESTART WITH 1;`;
+    await prisma.$executeRaw`ALTER SEQUENCE "Query_id_seq" RESTART WITH 1;`;
+    await prisma.$executeRaw`ALTER SEQUENCE "QueryType_id_seq" RESTART WITH 1;`;
+    await prisma.$executeRaw`ALTER SEQUENCE "Calendar_id_seq" RESTART WITH 1;`;
+
+    console.log('Database cleaned successfully');
+  } catch (error) {
+    console.error('Error cleaning database:', error);
+    throw error;
+  }
+};
+
 async function main() {
   try {
+    await cleanDatabase();
     console.log('Starting database seed...');
 
     // Clean the database first

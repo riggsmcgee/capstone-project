@@ -26,7 +26,7 @@ const authenticateToken = (req, res, next) => {
   }
 };
 
-// Optional: Role-based authorization
+// Role-based authorization
 const authorizeRole = (roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
