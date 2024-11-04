@@ -4,6 +4,11 @@ import React, { createContext, useState, useEffect } from 'react';
 export const AuthContext = createContext({
   token: null,
   setToken: () => {},
+  userId: null,
+  setUserId: () => {},
+  userRole: null,
+  setUserRole: () => {},
+  logout: () => {},
 });
 
 // Create the AuthProvider component
@@ -12,8 +17,18 @@ export const AuthProvider = ({ children }) => {
     return localStorage.getItem('token');
   });
 
+  const [userId, setUserId] = useState(() => {
+    return localStorage.getItem('userId');
+  });
+
+  const [userRole, setUserRole] = useState(() => {
+    return localStorage.getItem('userRole');
+  });
+
   const logout = () => {
     setToken(null);
+    setUserId(null);
+    setUserRole(null);
   };
 
   useEffect(() => {
@@ -24,8 +39,34 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
+  useEffect(() => {
+    if (userId) {
+      localStorage.setItem('userId', userId);
+    } else {
+      localStorage.removeItem('userId');
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (userRole) {
+      localStorage.setItem('userRole', userRole);
+    } else {
+      localStorage.removeItem('userRole');
+    }
+  }, [userRole]);
+
   return (
-    <AuthContext.Provider value={{ token, setToken }}>
+    <AuthContext.Provider
+      value={{
+        token,
+        setToken,
+        userId,
+        setUserId,
+        userRole,
+        setUserRole,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

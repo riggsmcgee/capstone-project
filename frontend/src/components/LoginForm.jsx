@@ -10,16 +10,23 @@ function LoginForm() {
   const navigate = useNavigate();
 
   const { setToken } = useContext(AuthContext);
+  const { setUserId } = useContext(AuthContext);
+  const { setUserRole } = useContext(AuthContext);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const data = await loginUser({ username, password });
       console.log('Login successful:', data);
+      // console.log(data.user.id);
+      // console.log(data.user.role);
+
       setToken(data.token);
+      setUserId(data.user.id);
+      setUserRole(data.user.role);
       // console.log('Data Token:', data.token);
       console.log('Local Storage Token:', localStorage.getItem('token'));
-      navigate('/');
+      navigate('/calendar-query');
     } catch (error) {
       setError(error.toString());
     }

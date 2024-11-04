@@ -39,8 +39,8 @@ app.use(express.json());
 
 console.log('Hello World');
 
-// app.use('/api/calendar', authenticateToken);
-// app.use('/api/queries', authenticateToken);
+app.use('/api/calendar', authenticateToken);
+app.use('/api/queries', authenticateToken);
 
 // –– User routes ––
 
@@ -363,6 +363,7 @@ app.get('/api/queries/user/:userId', async (req, res) => {
 app.post('/api/queries', async (req, res) => {
   try {
     const { userId, content, typeId } = req.body;
+    const requesterId = req.user.id;
 
     // Validate request body
     if (!userId || !content || !typeId) {
@@ -372,21 +373,84 @@ app.post('/api/queries', async (req, res) => {
       });
     }
 
-    // Verify user exists
-    const user = await prisma.user.findUnique({
-      where: { id: parseInt(userId) },
+    if (!Array.isArray(userId) || userId.length === 0) {
+      return res.status(400).json({ error: 'Please select at least one user' });
+    }
+
+    // Parse user IDs to integers
+    const userIdInts = userId.map((id) => parseInt(id, 10));
+
+    // Verify all target users exist
+    const users = await prisma.user.findMany({
+      where: {
+        id: {
+          in: userIdInts,
+        },
+      },
     });
 
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+    if (users.length !== userIdInts.length) {
+      return res
+        .status(404)
+        .json({ error: 'One or more target users not found' });
     }
+
+    // Fetch calendars for target users
+    const calendars = await prisma.calendar.findMany({
+      where: {
+        userId: {
+          in: userIdInts,
+        },
+      },
+      select: {
+        userId: true,
+        availability: true,
+      },
+    });
+
+    if (calendars.length !== userIdInts.length) {
+      return res
+        .status(404)
+        .json({ error: 'Calendar not found for one or more users' });
+    }
+
+    // Fetch requester's calendar
+    const requesterCalendar = await prisma.calendar.findUnique({
+      where: { userId: requesterId },
+      select: {
+        userId: true,
+        availability: true,
+      },
+    });
+
+    if (!requesterCalendar) {
+      return res.status(404).json({ error: 'Requester calendar not found' });
+    }
+
+    const allCalendars = [requesterCalendar, ...calendars];
+
+    // Process availability with AI service
+    let aiResult = await aiService.processAvailabilityQuery(
+      content,
+      allCalendars
+    );
+
+    console.log('AI Result:', aiResult);
+
+    // Ensure aiResult is a string
+    const aiResultString =
+      typeof aiResult === 'string' ? aiResult : JSON.stringify(aiResult);
 
     // Create the query
     const query = await prisma.query.create({
       data: {
-        userId: parseInt(userId),
+        userId: requesterId,
         content,
-        typeId: parseInt(typeId),
+        typeId: parseInt(typeId, 10),
+        result: aiResultString,
+        targetUsers: {
+          create: userIdInts.map((id) => ({ userId: id })),
+        },
       },
       include: {
         user: {
@@ -402,10 +466,13 @@ app.post('/api/queries', async (req, res) => {
       },
     });
 
-    res.status(201).json(query);
+    // Respond with both query and aiResult
+    res.status(201).json({ query, aiResult: aiResultString });
   } catch (error) {
     console.error('Error creating query:', error);
-    res.status(500).json({ error: 'Failed to create query' });
+    res
+      .status(500)
+      .json({ error: 'Failed to create query', details: error.message });
   }
 });
 
