@@ -19,6 +19,8 @@ model User {
   queries         Query[]     @relation("UserQueries")
   calendar        Calendar?   // Changed from calendars: Calendar[] to calendar: Calendar?
   queriesInvolved QueryUser[] // Explicit many-to-many relation through QueryUser
+  friendships     Friendship[] @relation("UserFriendships")
+  friendOf        Friendship[] @relation("FriendOfFriendships")
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 }
@@ -66,4 +68,23 @@ model QueryUser {
   userId   Int
 
   @@id([queryId, userId])
+}
+
+model Friendship {
+  id        Int      @id @default(autoincrement())
+  requester User     @relation("UserFriendships", fields: [requesterId], references: [id])
+  requesterId Int
+  receiver  User     @relation("FriendOfFriendships", fields: [receiverId], references: [id])
+  receiverId Int
+  status    FriendshipStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([requesterId, receiverId])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
 }
