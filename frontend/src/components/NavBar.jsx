@@ -29,6 +29,9 @@ const NavBar = () => {
               <Link to="/calendar-query">Query</Link>
             </li>
             <li>
+              <Link to="/friends">Friends</Link>
+            </li>
+            <li>
               <button onClick={handleLogout} className="logout-button">
                 Logout
               </button>

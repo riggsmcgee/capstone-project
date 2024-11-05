@@ -853,6 +853,228 @@ app.delete('/api/calendar/:id', async (req, res) => {
   }
 });
 
+// –– Friendship routes ––
+
+// Send a Friend Request
+app.post('/api/friends/request', authenticateToken, async (req, res) => {
+  try {
+    const requesterId = req.user.id;
+    const { receiverId } = req.body;
+
+    if (requesterId === receiverId) {
+      return res
+        .status(400)
+        .json({ error: 'Cannot send friend request to yourself.' });
+    }
+
+    // Check if receiver exists
+    const receiver = await prisma.user.findUnique({
+      where: { id: receiverId },
+    });
+    if (!receiver) {
+      return res.status(404).json({ error: 'Receiver not found.' });
+    }
+
+    // Check if friendship already exists
+    const existingFriendship = await prisma.friendship.findFirst({
+      where: {
+        OR: [
+          { requesterId, receiverId },
+          { requesterId: receiverId, receiverId: requesterId },
+        ],
+      },
+    });
+
+    if (existingFriendship) {
+      return res
+        .status(400)
+        .json({ error: 'Friendship already exists or pending.' });
+    }
+
+    // Create friendship with PENDING status
+    const friendship = await prisma.friendship.create({
+      data: {
+        requesterId,
+        receiverId,
+        status: 'PENDING',
+      },
+    });
+
+    res.status(201).json({ message: 'Friend request sent.', friendship });
+  } catch (error) {
+    console.error('Error sending friend request:', error);
+    res.status(500).json({ error: 'Failed to send friend request.' });
+  }
+});
+
+// Accept a Friend Request
+app.post('/api/friends/accept', authenticateToken, async (req, res) => {
+  try {
+    const receiverId = req.user.id;
+    const { requesterId } = req.body;
+
+    // Find the pending friendship
+    const friendship = await prisma.friendship.findFirst({
+      where: {
+        requesterId,
+        receiverId,
+        status: 'PENDING',
+      },
+    });
+
+    if (!friendship) {
+      return res.status(404).json({ error: 'Friend request not found.' });
+    }
+
+    // Update the friendship status to ACCEPTED
+    const updatedFriendship = await prisma.friendship.update({
+      where: { id: friendship.id },
+      data: { status: 'ACCEPTED' },
+    });
+
+    res.json({
+      message: 'Friend request accepted.',
+      friendship: updatedFriendship,
+    });
+  } catch (error) {
+    console.error('Error accepting friend request:', error);
+    res.status(500).json({ error: 'Failed to accept friend request.' });
+  }
+});
+
+// Decline a Friend Request
+app.post('/api/friends/decline', authenticateToken, async (req, res) => {
+  try {
+    const receiverId = req.user.id;
+    const { requesterId } = req.body;
+
+    // Find the pending friendship
+    const friendship = await prisma.friendship.findFirst({
+      where: {
+        requesterId,
+        receiverId,
+        status: 'PENDING',
+      },
+    });
+
+    if (!friendship) {
+      return res.status(404).json({ error: 'Friend request not found.' });
+    }
+
+    // Update the friendship status to DECLINED
+    const updatedFriendship = await prisma.friendship.update({
+      where: { id: friendship.id },
+      data: { status: 'DECLINED' },
+    });
+
+    res.json({
+      message: 'Friend request declined.',
+      friendship: updatedFriendship,
+    });
+  } catch (error) {
+    console.error('Error declining friend request:', error);
+    res.status(500).json({ error: 'Failed to decline friend request.' });
+  }
+});
+
+// Remove a Friend
+app.delete('/api/friends/remove', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { friendId } = req.body;
+
+    // Validate friendId
+    if (!friendId) {
+      return res.status(400).json({ error: 'friendId is required.' });
+    }
+
+    // Find the existing friendship
+    const friendship = await prisma.friendship.findFirst({
+      where: {
+        OR: [
+          { requesterId: userId, receiverId: friendId, status: 'ACCEPTED' },
+          { requesterId: friendId, receiverId: userId, status: 'ACCEPTED' },
+        ],
+      },
+    });
+
+    if (!friendship) {
+      return res.status(404).json({ error: 'Friendship not found.' });
+    }
+
+    // Delete the friendship
+    await prisma.friendship.delete({ where: { id: friendship.id } });
+
+    res.json({ message: 'Friend removed successfully.' });
+  } catch (error) {
+    console.error('Error removing friend:', error);
+    res.status(500).json({ error: 'Failed to remove friend.' });
+  }
+});
+
+// Get Friends List
+app.get('/api/friends/list', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const friendships = await prisma.friendship.findMany({
+      where: {
+        AND: [
+          { status: 'ACCEPTED' },
+          {
+            OR: [{ requesterId: userId }, { receiverId: userId }],
+          },
+        ],
+      },
+      include: {
+        requester: {
+          select: { id: true, username: true },
+        },
+        receiver: {
+          select: { id: true, username: true },
+        },
+      },
+    });
+
+    const friends = friendships.map((friendship) => {
+      if (friendship.requesterId === userId) {
+        return friendship.receiver;
+      } else {
+        return friendship.requester;
+      }
+    });
+
+    res.json({ friends });
+  } catch (error) {
+    console.error('Error fetching friends:', error);
+    res.status(500).json({ error: 'Failed to fetch friends.' });
+  }
+});
+
+// Get Incoming Friend Requests
+app.get('/api/friends/requests', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const requests = await prisma.friendship.findMany({
+      where: {
+        receiverId: userId,
+        status: 'PENDING',
+      },
+      include: {
+        requester: {
+          select: { id: true, username: true },
+        },
+      },
+    });
+
+    res.json({ requests });
+  } catch (error) {
+    console.error('Error fetching friend requests:', error);
+    res.status(500).json({ error: 'Failed to fetch friend requests.' });
+  }
+});
+
 // Error handling middleware
 app.use(errorHandler);
 
