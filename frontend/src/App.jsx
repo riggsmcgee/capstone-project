@@ -10,6 +10,7 @@ import Friends from './pages/Friends';
 import { AuthProvider } from './context/AuthContext';
 import NavBar from './components/NavBar';
 import ProtectedRoute from './components/ProtectedRoute';
+import Admin from './pages/Admin';
 
 function App() {
   return (
@@ -22,14 +23,8 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/calendar-upload" element={<CalendarUpload />} />
           <Route path="/calendar-query" element={<CalendarQuery />} />
-          <Route
-            path="/friends"
-            element={
-              // <ProtectedRoute>
-              <Friends />
-              // </ProtectedRoute>
-            }
-          />
+          <Route path="/friends" element={<Friends />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
       </Router>
     </AuthProvider>

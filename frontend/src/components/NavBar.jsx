@@ -6,6 +6,7 @@ import './NavBar.css'; // We'll create this CSS file next
 
 const NavBar = () => {
   const { token, logout } = useContext(AuthContext);
+  const { userRole } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -31,6 +32,11 @@ const NavBar = () => {
             <li>
               <Link to="/friends">Friends</Link>
             </li>
+            {userRole === 1 && (
+              <li>
+                <Link to="/admin">Admin</Link>
+              </li>
+            )}
             <li>
               <button onClick={handleLogout} className="logout-button">
                 Logout

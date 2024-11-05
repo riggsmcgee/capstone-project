@@ -46,7 +46,11 @@ app.use('/api/queries', authenticateToken);
 
 // get users ✓
 app.get('/api/users', async (req, res) => {
-  const users = await prisma.user.findMany();
+  const users = await prisma.user.findMany({
+    include: {
+      role: true,
+    },
+  });
   res.json(users);
 });
 
@@ -153,7 +157,6 @@ app.put('/api/users/:id', async (req, res) => {
   res.json(updatedUser);
 });
 
-// patch user (can change username or password)  ✓
 app.patch('/api/users/:id', async (req, res) => {
   const userId = parseInt(req.params.id);
 
@@ -161,28 +164,29 @@ app.patch('/api/users/:id', async (req, res) => {
     return res.status(400).json({ error: 'Invalid user ID' });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-  });
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
-  }
+  const { username, password, roleId } = req.body;
 
-  const { username, password } = req.body;
-
-  if (!username && !password) {
+  if (!username && !password && !roleId) {
     return res.status(400).json({ error: 'Nothing to update' });
   }
 
-  const updatedUser = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      username,
-      passwordHash: password ? await bcrypt.hash(password, 10) : undefined,
-    },
-  });
+  const dataToUpdate = {};
+  if (username) dataToUpdate.username = username;
+  if (password) dataToUpdate.passwordHash = await bcrypt.hash(password, 10);
+  if (roleId) dataToUpdate.roleId = roleId;
 
-  res.json(updatedUser);
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: dataToUpdate,
+      include: { role: true }, // Include role in the response
+    });
+
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
 });
 
 // delete user ✓
@@ -196,15 +200,60 @@ app.delete('/api/users/:id', async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
   });
+
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  await prisma.user.delete({
-    where: { id: userId },
-  });
+  try {
+    // Perform all deletions within a transaction
+    await prisma.$transaction(async (prisma) => {
+      // 1. Delete QueryUser records where user is involved
+      await prisma.queryUser.deleteMany({
+        where: { userId: userId },
+      });
 
-  res.json({ message: 'User deleted successfully' });
+      // 2. Delete Friendship records where user is requester or receiver
+      await prisma.friendship.deleteMany({
+        where: {
+          OR: [{ requesterId: userId }, { receiverId: userId }],
+        },
+      });
+
+      // 3. Find all Query IDs associated with the user
+      const userQueries = await prisma.query.findMany({
+        where: { userId: userId },
+        select: { id: true },
+      });
+
+      const queryIds = userQueries.map((query) => query.id);
+
+      // 4. Delete QueryUser records associated with these Queries
+      await prisma.queryUser.deleteMany({
+        where: { queryId: { in: queryIds } },
+      });
+
+      // 5. Delete Query records
+      await prisma.query.deleteMany({
+        where: { userId: userId },
+      });
+
+      // 6. Delete Calendar record
+      await prisma.calendar.deleteMany({
+        where: { userId: userId },
+      });
+
+      // 7. Finally, delete the User
+      await prisma.user.delete({
+        where: { id: userId },
+      });
+    });
+
+    res.json({ message: 'User and all related records deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
 });
 
 // login user
