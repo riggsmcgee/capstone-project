@@ -9,6 +9,8 @@ export default function CalendarUpload() {
   const { token, userId } = useContext(AuthContext);
   const navigate = useNavigate();
 
+  const API_BASE_URL = import.meta.env.VITE_API_URL;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -20,7 +22,7 @@ export default function CalendarUpload() {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/calendar', {
+      const response = await fetch(`${API_BASE_URL}/api/calendar`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

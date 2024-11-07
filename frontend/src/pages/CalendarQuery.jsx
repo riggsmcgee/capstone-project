@@ -10,10 +10,12 @@ export default function CalendarQuery() {
   const [loading, setLoading] = useState(false);
   const { token } = useContext(AuthContext);
 
+  const API_BASE_URL = import.meta.env.VITE_API_URL;
+
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/users', {
+        const response = await fetch(`${API_BASE_URL}/api/users`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -59,7 +61,7 @@ export default function CalendarQuery() {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/queries', {
+      const response = await fetch(`${API_BASE_URL}/api/queries`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
