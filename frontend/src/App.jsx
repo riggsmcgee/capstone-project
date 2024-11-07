@@ -13,6 +13,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Admin from './pages/Admin';
 
 function App() {
+  console.log(import.meta.env.VITE_API_URL);
   return (
     <AuthProvider>
       <Router>

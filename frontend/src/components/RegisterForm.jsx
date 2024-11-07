@@ -12,6 +12,8 @@ function RegisterForm() {
   const { setUserId } = useContext(AuthContext);
   const { setUserRole } = useContext(AuthContext);
 
+  const API_BASE_URL = import.meta.env.VITE_API_URL;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -23,7 +25,7 @@ function RegisterForm() {
 
     try {
       const registerResponse = await fetch(
-        'http://localhost:3000/api/users/register',
+        `${API_BASE_URL}/api/users/register`,
         {
           method: 'POST',
           headers: {
@@ -40,16 +42,13 @@ function RegisterForm() {
         throw new Error(registerData.error || 'Registration failed');
       }
 
-      const loginResponse = await fetch(
-        'http://localhost:3000/api/users/login',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ username, password }),
-        }
-      );
+      const loginResponse = await fetch(`${API_BASE_URL}/api/users/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
 
       const loginData = await loginResponse.json();
 
