@@ -1,8 +1,7 @@
-// src/components/NavBar.jsx
 import React, { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import './NavBar.css'; // We'll create this CSS file next
+import './NavBar.css';
 
 const NavBar = () => {
   const { token, logout } = useContext(AuthContext);
@@ -11,7 +10,7 @@ const NavBar = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/'); // Redirect to home after logout
+    navigate('/');
   };
 
   return (
@@ -21,7 +20,6 @@ const NavBar = () => {
       </div>
       <ul className="navbar-links">
         {token ? (
-          // Logged In Links
           <>
             <li>
               <Link to="/calendar-upload">Upload</Link>
@@ -44,7 +42,6 @@ const NavBar = () => {
             </li>
           </>
         ) : (
-          // Logged Out Links
           <>
             <li>
               <Link to="/login">Login</Link>

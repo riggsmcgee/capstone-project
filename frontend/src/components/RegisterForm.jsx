@@ -7,15 +7,14 @@ function RegisterForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
   const { setToken } = useContext(AuthContext);
+  const { setUserId } = useContext(AuthContext);
+  const { setUserRole } = useContext(AuthContext);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    console.log('Username:', username);
-    console.log('Password:', password);
-
-    // Basic validation
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters long');
@@ -23,8 +22,6 @@ function RegisterForm() {
     }
 
     try {
-      // Step 1: Register the user
-      console.log('Attempting to register user...');
       const registerResponse = await fetch(
         'http://localhost:3000/api/users/register',
         {
@@ -37,15 +34,12 @@ function RegisterForm() {
       );
 
       const registerData = await registerResponse.json();
-      console.log('Register response:', registerData);
 
       if (!registerResponse.ok) {
         console.error('Registration failed:', registerData.error);
         throw new Error(registerData.error || 'Registration failed');
       }
-      console.log('Registration successful! Attempting to log in...');
 
-      // After successful registration, automatically log in
       const loginResponse = await fetch(
         'http://localhost:3000/api/users/login',
         {
@@ -58,7 +52,6 @@ function RegisterForm() {
       );
 
       const loginData = await loginResponse.json();
-      console.log('Login response:', loginData);
 
       if (!loginResponse.ok) {
         console.error('Login after registration failed:', loginData.error);
@@ -66,6 +59,8 @@ function RegisterForm() {
       }
 
       setToken(loginData.token);
+      setUserId(loginData.user.id);
+      setUserRole(loginData.user.role);
       navigate('/');
     } catch (err) {
       setError(err.message);

@@ -1,4 +1,3 @@
-// prisma/seed.js
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
@@ -8,14 +7,14 @@ const cleanDatabase = async () => {
   try {
     console.log('Cleaning up existing data...');
 
-    // Delete all data from tables
+    await prisma.queryUser.deleteMany({});
+    await prisma.friendship.deleteMany({});
     await prisma.query.deleteMany({});
     await prisma.calendar.deleteMany({});
     await prisma.user.deleteMany({});
     await prisma.queryType.deleteMany({});
     await prisma.role.deleteMany({});
 
-    // Reset the autoincrement sequences
     await prisma.$executeRaw`ALTER SEQUENCE "Role_id_seq" RESTART WITH 1;`;
     await prisma.$executeRaw`ALTER SEQUENCE "User_id_seq" RESTART WITH 1;`;
     await prisma.$executeRaw`ALTER SEQUENCE "Query_id_seq" RESTART WITH 1;`;
@@ -33,8 +32,6 @@ async function main() {
   try {
     await cleanDatabase();
     console.log('Starting database seed...');
-
-    // Clean the database first
     await prisma.query.deleteMany({});
     await prisma.calendar.deleteMany({});
     await prisma.user.deleteMany({});
@@ -43,7 +40,6 @@ async function main() {
 
     console.log('Cleaned up existing data');
 
-    // Create roles
     const adminRole = await prisma.role.create({
       data: { name: 'ADMIN' },
     });
@@ -54,7 +50,6 @@ async function main() {
 
     console.log('Created roles');
 
-    // Create query types
     const queryTypes = await Promise.all([
       prisma.queryType.create({
         data: { name: 'PROMPT' },
@@ -66,7 +61,6 @@ async function main() {
 
     console.log('Created query types');
 
-    // Create admin user
     const adminPassword = await bcrypt.hash('admin123', 10);
     const admin = await prisma.user.create({
       data: {
@@ -76,7 +70,6 @@ async function main() {
       },
     });
 
-    // Create regular users
     const userPassword = await bcrypt.hash('user123', 10);
     const user1 = await prisma.user.create({
       data: {
@@ -96,7 +89,6 @@ async function main() {
 
     console.log('Created users');
 
-    // Create queries
     await Promise.all([
       prisma.query.create({
         data: {
@@ -116,7 +108,6 @@ async function main() {
 
     console.log('Created queries');
 
-    // Create calendars with sample availability
     await Promise.all([
       prisma.calendar.create({
         data: {

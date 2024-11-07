@@ -1,4 +1,3 @@
-// middleware/auth.js
 const jwt = require('jsonwebtoken');
 
 const generateToken = (user) => {
@@ -26,7 +25,6 @@ const authenticateToken = (req, res, next) => {
   }
 };
 
-// Role-based authorization
 const authorizeRole = (roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {

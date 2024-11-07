@@ -17,16 +17,12 @@ function LoginForm() {
     e.preventDefault();
     try {
       const data = await loginUser({ username, password });
-      console.log('Login successful:', data);
-      // console.log(data.user.id);
-      // console.log(data.user.role);
+      // console.log('Login successful:', data);
 
       setToken(data.token);
       setUserId(data.user.id);
       setUserRole(data.user.role);
-      // console.log('Data Token:', data.token);
-      console.log('Local Storage Token:', localStorage.getItem('token'));
-      navigate('/calendar-query');
+      navigate('/');
     } catch (error) {
       setError(error.toString());
     }

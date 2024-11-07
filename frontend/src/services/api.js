@@ -13,7 +13,6 @@ export const loginUser = async (credentials) => {
     if (response.data.token) {
       localStorage.setItem('token', response.data.token);
     }
-    // console.log('Login successful:', response.data);
     return response.data;
   } catch (error) {
     throw error.response?.data?.error || 'Login failed';

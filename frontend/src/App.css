@@ -40,3 +40,22 @@
 .read-the-docs {
   color: #888;
 }
+
+.user-button {
+  padding: 0.75rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
+}
+
+.user-button.selected {
+  background-color: #3b82f6;
+  color: #fff;
+  border: 2px solid #1e40af;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.user-button.unselected {
+  background-color: #e5e7eb;
+  color: #000;
+  border: 1px solid #d1d5db;
+}

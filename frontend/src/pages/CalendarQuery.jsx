@@ -1,4 +1,3 @@
-// CalendarQuery.jsx
 import { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 
@@ -11,7 +10,6 @@ export default function CalendarQuery() {
   const [loading, setLoading] = useState(false);
   const { token } = useContext(AuthContext);
 
-  // Fetch available users when component mounts
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -40,7 +38,6 @@ export default function CalendarQuery() {
       ? selectedUsers.filter((id) => id !== userId)
       : [...selectedUsers, userId];
     setSelectedUsers(newSelectedUsers);
-    console.log('Selected users:', newSelectedUsers);
   };
 
   const handleSubmit = async (e) => {
@@ -61,10 +58,6 @@ export default function CalendarQuery() {
       return;
     }
 
-    console.log('Query input:', queryInput);
-    console.log('Selected users:', selectedUsers);
-    console.log('typeId:', 1);
-
     try {
       const response = await fetch('http://localhost:3000/api/queries', {
         method: 'POST',
@@ -75,27 +68,17 @@ export default function CalendarQuery() {
         body: JSON.stringify({
           content: queryInput,
           userId: selectedUsers,
-          typeId: 1, // Assuming 1 is for availability queries
+          typeId: 1,
         }),
       });
 
       const data = await response.json();
-
-      console.log('Response:', data);
       if (!response.ok) {
         throw new Error(data.error || 'Failed to process query');
       }
 
-      // Log AI's response to the browser console
-      console.log('AI Response:', data.aiResult);
-
-      // Update the UI with AI's response
       setQueryResult(data.aiResult);
 
-      // Optionally, handle the created query
-      console.log('Created Query:', data.query);
-
-      // Reset form fields
       setQueryInput('');
       setSelectedUsers([]);
     } catch (err) {
@@ -119,10 +102,8 @@ export default function CalendarQuery() {
                 key={user.id}
                 type="button"
                 onClick={() => handleUserSelection(user.id)}
-                className={`px-3 py-1 rounded ${
-                  selectedUsers.includes(user.id)
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-200'
+                className={`user-button ${
+                  selectedUsers.includes(user.id) ? 'selected' : 'unselected'
                 }`}
                 disabled={loading}
               >

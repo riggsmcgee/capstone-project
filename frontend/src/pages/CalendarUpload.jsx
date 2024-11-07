@@ -19,9 +19,6 @@ export default function CalendarUpload() {
       return;
     }
 
-    console.log('Calendar input:', calendarInput);
-    console.log('userId:', userId);
-
     try {
       const response = await fetch('http://localhost:3000/api/calendar', {
         method: 'POST',

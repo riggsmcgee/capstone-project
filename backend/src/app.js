@@ -3,7 +3,7 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const aiService = require('./services/mockAiService');
+const aiService = require('./services/aiService');
 
 const { authenticateToken, generateToken } = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
@@ -12,14 +12,13 @@ const app = express();
 const port = 3000;
 
 const allowedOrigins = [
-  'http://localhost:5173', // Frontend during development
+  'http://localhost:5173',
   'http://localhost:3000',
-  'https://your-production-frontend.com', // Frontend in production
+  'https://your-production-frontend.com',
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
       const msg =
@@ -36,8 +35,6 @@ const corsOptions = {
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-console.log('Hello World');
 
 app.use('/api/calendar', authenticateToken);
 app.use('/api/queries', authenticateToken);
@@ -76,7 +73,6 @@ app.post('/api/users/register', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Validate input
     if (!username) {
       return res.status(400).json({ error: 'Username is required' });
     }
@@ -94,7 +90,6 @@ app.post('/api/users/register', async (req, res) => {
         .json({ error: 'Password must be at least 6 characters long' });
     }
 
-    // Check if username already exists
     const existingUser = await prisma.user.findUnique({
       where: { username },
     });
@@ -103,18 +98,16 @@ app.post('/api/users/register', async (req, res) => {
       return res.status(400).json({ error: 'Username already exists' });
     }
 
-    // Hash password and create user
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
       data: {
         username,
         passwordHash: hashedPassword,
-        roleId: 2, // User Role
+        roleId: 2,
       },
     });
 
-    // Return user data without sensitive information
     res.status(201).json({
       id: user.id,
       username: user.username,
@@ -179,7 +172,7 @@ app.patch('/api/users/:id', async (req, res) => {
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: dataToUpdate,
-      include: { role: true }, // Include role in the response
+      include: { role: true },
     });
 
     res.json(updatedUser);
@@ -206,21 +199,17 @@ app.delete('/api/users/:id', async (req, res) => {
   }
 
   try {
-    // Perform all deletions within a transaction
     await prisma.$transaction(async (prisma) => {
-      // 1. Delete QueryUser records where user is involved
       await prisma.queryUser.deleteMany({
         where: { userId: userId },
       });
 
-      // 2. Delete Friendship records where user is requester or receiver
       await prisma.friendship.deleteMany({
         where: {
           OR: [{ requesterId: userId }, { receiverId: userId }],
         },
       });
 
-      // 3. Find all Query IDs associated with the user
       const userQueries = await prisma.query.findMany({
         where: { userId: userId },
         select: { id: true },
@@ -228,22 +217,18 @@ app.delete('/api/users/:id', async (req, res) => {
 
       const queryIds = userQueries.map((query) => query.id);
 
-      // 4. Delete QueryUser records associated with these Queries
       await prisma.queryUser.deleteMany({
         where: { queryId: { in: queryIds } },
       });
 
-      // 5. Delete Query records
       await prisma.query.deleteMany({
         where: { userId: userId },
       });
 
-      // 6. Delete Calendar record
       await prisma.calendar.deleteMany({
         where: { userId: userId },
       });
 
-      // 7. Finally, delete the User
       await prisma.user.delete({
         where: { id: userId },
       });
@@ -261,7 +246,6 @@ app.post('/api/users/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Validate input
     if (!username) {
       return res.status(400).json({ error: 'Username is required' });
     }
@@ -269,7 +253,6 @@ app.post('/api/users/login', async (req, res) => {
       return res.status(400).json({ error: 'Password is required' });
     }
 
-    // Check if username exists
     const user = await prisma.user.findUnique({
       where: { username },
     });
@@ -278,7 +261,6 @@ app.post('/api/users/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    // Check if password is correct
     const passwordMatch = await bcrypt.compare(password, user.passwordHash);
 
     if (!passwordMatch) {
@@ -300,11 +282,6 @@ app.post('/api/users/login', async (req, res) => {
     res.status(500).json({ error: 'Login failed' });
   }
 });
-
-// logout (not working)
-/* app.post('/api/users/logout', (req, res) => {
-  // res.json({ message: 'Logout' });
-}); */
 
 // change user role ✓
 app.patch('/api/users/:id/role', async (req, res) => {
@@ -367,7 +344,6 @@ app.get('/api/queries', async (req, res) => {
   }
 });
 
-// Get queries by user ID
 app.get('/api/queries/user/:userId', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
@@ -376,7 +352,6 @@ app.get('/api/queries/user/:userId', async (req, res) => {
       return res.status(400).json({ error: 'Invalid user ID' });
     }
 
-    // Check if user exists
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
@@ -414,7 +389,6 @@ app.post('/api/queries', async (req, res) => {
     const { userId, content, typeId } = req.body;
     const requesterId = req.user.id;
 
-    // Validate request body
     if (!userId || !content || !typeId) {
       return res.status(400).json({
         error:
@@ -426,10 +400,8 @@ app.post('/api/queries', async (req, res) => {
       return res.status(400).json({ error: 'Please select at least one user' });
     }
 
-    // Parse user IDs to integers
     const userIdInts = userId.map((id) => parseInt(id, 10));
 
-    // Verify all target users exist
     const users = await prisma.user.findMany({
       where: {
         id: {
@@ -444,17 +416,9 @@ app.post('/api/queries', async (req, res) => {
         .json({ error: 'One or more target users not found' });
     }
 
-    // Fetch calendars for target users
     const calendars = await prisma.calendar.findMany({
-      where: {
-        userId: {
-          in: userIdInts,
-        },
-      },
-      select: {
-        userId: true,
-        availability: true,
-      },
+      where: { userId: { in: userIdInts } },
+      include: { user: { select: { username: true } } },
     });
 
     if (calendars.length !== userIdInts.length) {
@@ -463,11 +427,14 @@ app.post('/api/queries', async (req, res) => {
         .json({ error: 'Calendar not found for one or more users' });
     }
 
-    // Fetch requester's calendar
     const requesterCalendar = await prisma.calendar.findUnique({
       where: { userId: requesterId },
       select: {
-        userId: true,
+        user: {
+          select: {
+            username: true,
+          },
+        },
         availability: true,
       },
     });
@@ -478,19 +445,14 @@ app.post('/api/queries', async (req, res) => {
 
     const allCalendars = [requesterCalendar, ...calendars];
 
-    // Process availability with AI service
     let aiResult = await aiService.processAvailabilityQuery(
       content,
       allCalendars
     );
 
-    console.log('AI Result:', aiResult);
-
-    // Ensure aiResult is a string
     const aiResultString =
       typeof aiResult === 'string' ? aiResult : JSON.stringify(aiResult);
 
-    // Create the query
     const query = await prisma.query.create({
       data: {
         userId: requesterId,
@@ -515,7 +477,6 @@ app.post('/api/queries', async (req, res) => {
       },
     });
 
-    // Respond with both query and aiResult
     res.status(201).json({ query, aiResult: aiResultString });
   } catch (error) {
     console.error('Error creating query:', error);
@@ -525,7 +486,6 @@ app.post('/api/queries', async (req, res) => {
   }
 });
 
-// Get query history with pagination and filters
 app.get('/api/queries/history', async (req, res) => {
   try {
     const {
@@ -537,7 +497,6 @@ app.get('/api/queries/history', async (req, res) => {
       endDate,
     } = req.query;
 
-    // Build filter conditions
     const where = {};
 
     if (userId) {
@@ -558,10 +517,8 @@ app.get('/api/queries/history', async (req, res) => {
       }
     }
 
-    // Get total count for pagination
     const total = await prisma.query.count({ where });
 
-    // Get paginated queries
     const queries = await prisma.query.findMany({
       where,
       include: {
@@ -603,7 +560,6 @@ app.get('/api/queries/analytics', async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
-    // Build date filter
     const dateFilter = {};
     if (startDate || endDate) {
       dateFilter.createdAt = {};
@@ -615,15 +571,12 @@ app.get('/api/queries/analytics', async (req, res) => {
       }
     }
 
-    // Get various analytics
     const [totalQueries, queriesByType, queriesByUser, recentActivityTrend] =
       await Promise.all([
-        // Total number of queries
         prisma.query.count({
           where: dateFilter,
         }),
 
-        // Queries grouped by type
         prisma.query.groupBy({
           by: ['typeId'],
           where: dateFilter,
@@ -635,7 +588,6 @@ app.get('/api/queries/analytics', async (req, res) => {
           },
         }),
 
-        // Top users by query count
         prisma.query.groupBy({
           by: ['userId'],
           where: dateFilter,
@@ -648,7 +600,6 @@ app.get('/api/queries/analytics', async (req, res) => {
           take: 5,
         }),
 
-        // Query activity by day (last 7 days)
         prisma.query.groupBy({
           by: ['createdAt'],
           where: {
@@ -733,7 +684,6 @@ app.get('/api/calendar/user/:userId', async (req, res) => {
   }
 });
 
-// Get multiple users' calendars
 app.get('/api/calendar/users', async (req, res) => {
   try {
     const userIds = req.query.userIds;
@@ -742,10 +692,8 @@ app.get('/api/calendar/users', async (req, res) => {
       return res.status(400).json({ error: 'User IDs are required' });
     }
 
-    // Convert string of comma-separated IDs to array of integers
     const userIdArray = userIds.split(',').map((id) => parseInt(id));
 
-    // Validate all IDs are numbers
     if (userIdArray.some(isNaN)) {
       return res.status(400).json({ error: 'Invalid user ID format' });
     }
@@ -784,7 +732,6 @@ app.post('/api/calendar', async (req, res) => {
       });
     }
 
-    // Verify user exists
     const user = await prisma.user.findUnique({
       where: { id: parseInt(userId) },
     });
@@ -793,7 +740,6 @@ app.post('/api/calendar', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check if user already has a calendar
     const existingCalendar = await prisma.calendar.findFirst({
       where: { userId: parseInt(userId) },
     });
@@ -802,12 +748,10 @@ app.post('/api/calendar', async (req, res) => {
       return res.status(400).json({ error: 'User already has a calendar' });
     }
 
-    // Process calendar input using AI
     const processedAvailability = await aiService.processCalendarInput(
       calendarInput
     );
 
-    // Create calendar with processed availability
     const calendar = await prisma.calendar.create({
       data: {
         userId: parseInt(userId),
@@ -843,7 +787,6 @@ app.put('/api/calendar/:id', async (req, res) => {
       return res.status(400).json({ error: 'Availability is required' });
     }
 
-    // Check if calendar exists
     const existingCalendar = await prisma.calendar.findUnique({
       where: { id: calendarId },
     });
@@ -882,7 +825,6 @@ app.delete('/api/calendar/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid calendar ID' });
     }
 
-    // Check if calendar exists
     const existingCalendar = await prisma.calendar.findUnique({
       where: { id: calendarId },
     });
@@ -916,7 +858,6 @@ app.post('/api/friends/request', authenticateToken, async (req, res) => {
         .json({ error: 'Cannot send friend request to yourself.' });
     }
 
-    // Check if receiver exists
     const receiver = await prisma.user.findUnique({
       where: { id: receiverId },
     });
@@ -924,7 +865,6 @@ app.post('/api/friends/request', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Receiver not found.' });
     }
 
-    // Check if friendship already exists
     const existingFriendship = await prisma.friendship.findFirst({
       where: {
         OR: [
@@ -940,7 +880,6 @@ app.post('/api/friends/request', authenticateToken, async (req, res) => {
         .json({ error: 'Friendship already exists or pending.' });
     }
 
-    // Create friendship with PENDING status
     const friendship = await prisma.friendship.create({
       data: {
         requesterId,
@@ -962,7 +901,6 @@ app.post('/api/friends/accept', authenticateToken, async (req, res) => {
     const receiverId = req.user.id;
     const { requesterId } = req.body;
 
-    // Find the pending friendship
     const friendship = await prisma.friendship.findFirst({
       where: {
         requesterId,
@@ -975,7 +913,6 @@ app.post('/api/friends/accept', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Friend request not found.' });
     }
 
-    // Update the friendship status to ACCEPTED
     const updatedFriendship = await prisma.friendship.update({
       where: { id: friendship.id },
       data: { status: 'ACCEPTED' },
@@ -991,13 +928,11 @@ app.post('/api/friends/accept', authenticateToken, async (req, res) => {
   }
 });
 
-// Decline a Friend Request
 app.post('/api/friends/decline', authenticateToken, async (req, res) => {
   try {
     const receiverId = req.user.id;
     const { requesterId } = req.body;
 
-    // Find the pending friendship
     const friendship = await prisma.friendship.findFirst({
       where: {
         requesterId,
@@ -1010,7 +945,6 @@ app.post('/api/friends/decline', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Friend request not found.' });
     }
 
-    // Update the friendship status to DECLINED
     const updatedFriendship = await prisma.friendship.update({
       where: { id: friendship.id },
       data: { status: 'DECLINED' },
@@ -1032,12 +966,10 @@ app.delete('/api/friends/remove', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const { friendId } = req.body;
 
-    // Validate friendId
     if (!friendId) {
       return res.status(400).json({ error: 'friendId is required.' });
     }
 
-    // Find the existing friendship
     const friendship = await prisma.friendship.findFirst({
       where: {
         OR: [
@@ -1051,7 +983,6 @@ app.delete('/api/friends/remove', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Friendship not found.' });
     }
 
-    // Delete the friendship
     await prisma.friendship.delete({ where: { id: friendship.id } });
 
     res.json({ message: 'Friend removed successfully.' });
@@ -1124,7 +1055,6 @@ app.get('/api/friends/requests', authenticateToken, async (req, res) => {
   }
 });
 
-// Error handling middleware
 app.use(errorHandler);
 
 app.listen(port, () => {

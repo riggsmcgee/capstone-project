@@ -55,7 +55,7 @@ model Calendar {
   id           Int      @id @default(autoincrement())
   user         User     @relation(fields: [userId], references: [id])
   userId       Int      @unique // Enforce uniqueness to ensure one-to-one
-  availability Json
+  availability String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

@@ -1,18 +1,13 @@
-// src/pages/Admin.jsx
-
 import { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 
-// Define the backend API base URL
-const API_BASE_URL = 'http://localhost:3000'; // Replace with your actual backend URL
+const API_BASE_URL = 'http://localhost:3000';
 
-// Helper function to make API requests using fetch
 const apiRequest = async (url, method = 'GET', body = null, token = null) => {
   const options = {
     method,
     headers: {
       'Content-Type': 'application/json',
-      // Include Authorization header if token is provided
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   };
@@ -24,14 +19,7 @@ const apiRequest = async (url, method = 'GET', body = null, token = null) => {
   try {
     const response = await fetch(`${API_BASE_URL}${url}`, options);
 
-    // Debugging: Log the response status and URL
-    console.log(
-      `Request to ${API_BASE_URL}${url} responded with status ${response.status}`
-    );
-
-    // Check if response status is OK (200-299)
     if (!response.ok) {
-      // Attempt to parse error message
       let errorMessage = 'An error occurred';
       try {
         const errorData = await response.json();
@@ -42,11 +30,9 @@ const apiRequest = async (url, method = 'GET', body = null, token = null) => {
       throw new Error(errorMessage);
     }
 
-    // Parse JSON response
     const data = await response.json();
     return data;
   } catch (err) {
-    // Re-throw the error to be handled in the calling function
     throw err;
   }
 };
@@ -58,16 +44,13 @@ function Admin() {
   const [editedUsername, setEditedUsername] = useState('');
   const [editedRoleId, setEditedRoleId] = useState('');
 
-  // Define role options with their corresponding IDs
   const roles = [
     { id: 1, name: 'Admin' },
     { id: 2, name: 'User' },
-    // Add other roles as needed
   ];
 
   useEffect(() => {
     fetchUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchUsers = async () => {
@@ -76,19 +59,17 @@ function Admin() {
       setUsers(data);
     } catch (error) {
       console.error('Error fetching users:', error.message);
-      // Optionally, display an error message to the user
     }
   };
 
   const handleEdit = (user) => {
     setEditingUserId(user.id);
     setEditedUsername(user.username);
-    setEditedRoleId(user.role.id); // Initialize with roleId instead of role name
+    setEditedRoleId(user.role.id);
   };
 
   const handleSave = async (userId) => {
     try {
-      // Validate the editedRoleId
       const validRoleIds = roles.map((role) => role.id);
       if (!validRoleIds.includes(Number(editedRoleId))) {
         throw new Error('Invalid role selected.');
@@ -96,9 +77,8 @@ function Admin() {
 
       const updatedData = {
         username: editedUsername,
-        roleId: Number(editedRoleId), // Ensure roleId is a number
+        roleId: Number(editedRoleId),
       };
-      console.log('Updated data:', updatedData);
 
       const data = await apiRequest(
         `/api/users/${userId}`,
@@ -107,14 +87,13 @@ function Admin() {
         token
       );
 
-      // Update local state with the updated user data
       setUsers((prevUsers) =>
         prevUsers.map((user) =>
           user.id === userId
             ? {
                 ...user,
                 username: editedUsername,
-                role: data.role, // Ensure this matches the backend response
+                role: data.role,
               }
             : user
         )
@@ -122,7 +101,6 @@ function Admin() {
       setEditingUserId(null);
     } catch (error) {
       console.error('Error updating user:', error.message);
-      // Optionally, display an error message to the user
     }
   };
 
@@ -134,7 +112,6 @@ function Admin() {
       setUsers((prevUsers) => prevUsers.filter((user) => user.id !== userId));
     } catch (error) {
       console.error('Error deleting user:', error.message);
-      // Optionally, display an error message to the user
     }
   };
 

@@ -1,32 +1,25 @@
-// services/aiService.js
-const OpenAI = require('openai');
+const { Configuration, OpenAIApi } = require('openai');
 
 class AIService {
   constructor() {
-    this.openai = new OpenAI({
+    const configuration = new Configuration({
       apiKey: process.env.OPENAI_API_KEY,
     });
+    this.openai = new OpenAIApi(configuration);
   }
 
   async processCalendarInput(input) {
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+      const response = await this.openai.createChatCompletion({
+        model: 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
             content: `You are a calendar processing assistant. Convert the following calendar input into the standardized format:
-            style/year/month/day/start_time–end_time/availability
-            OR
-            style/start_year/start_month/start_day/start_time–end_year/end_month/end_day/end_time/availability
+
+             {"friday":["9:00-13:00"],"monday":["9:00-12:00","13:00-17:00"],"tuesday":["10:00-15:00"],"thursday":["13:00-18:00"],"wednesday":["9:00-17:00"]}
             
-            Availability levels:
-            3 = available and preferred
-            2 = available
-            1 = available and not preferred
-            0 = not available
-            
-            Return only the formatted entries, one per line.`,
+            Return only the formatted entries.`,
           },
           {
             role: 'user',
@@ -36,33 +29,45 @@ class AIService {
         temperature: 0,
       });
 
-      return response.choices[0].message.content;
+      return response.data.choices[0].message.content;
     } catch (error) {
-      console.error('AI Calendar Processing Error:', error);
+      console.error(
+        'AI Calendar Processing Error:',
+        error.response?.data || error.message
+      );
       throw new Error('Failed to process calendar input');
     }
   }
 
   async processAvailabilityQuery(query, calendars) {
     try {
-      const formattedCalendars = calendars.map((calendar) => ({
-        username: calendar.user.username,
-        availability: calendar.availability,
-      }));
+      const formattedCalendars = calendars.map((calendar) => {
+        if (!calendar.user || !calendar.user.username) {
+          throw new Error(
+            `Calendar for userId ${calendar.userId} is missing username.`
+          );
+        }
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        if (typeof calendar.availability !== 'string') {
+          throw new Error(
+            `Availability for user ${calendar.user.username} must be a string.`
+          );
+        }
+
+        return {
+          username: calendar.user.username,
+          availability: calendar.availability,
+        };
+      });
+
+      const response = await this.openai.createChatCompletion({
+        model: 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
             content: `You are a scheduling assistant. Analyze the provided calendars and answer questions about user availability. 
-            Consider all availability levels:
-            3 = available and preferred
-            2 = available
-            1 = available and not preferred
-            0 = not available
             
-            Provide clear, concise responses about when users can meet.`,
+            Provide clear, concise responses about when users can meet. Use the 12 hour clock and offer as many options as possible (max 5).`,
           },
           {
             role: 'user',
@@ -74,9 +79,12 @@ class AIService {
         temperature: 0.7,
       });
 
-      return response.choices[0].message.content;
+      return response.data.choices[0].message.content;
     } catch (error) {
-      console.error('AI Query Processing Error:', error);
+      console.error(
+        'AI Query Processing Error:',
+        error.response?.data || error.message
+      );
       throw new Error('Failed to process availability query');
     }
   }

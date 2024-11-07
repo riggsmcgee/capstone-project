@@ -1,8 +1,13 @@
 # React + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Welcome to the Calendar App
 
-Currently, two official plugins are available:
+–– Start by logging in or registering if you're new. ––
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+–– Then upload your calendar --
+
+–– Finally, query for availability. You can query someone else to compare your two schedules, or you can query yourself to see your schedule. ––
+
+–– If you want to add your friends to keep track of them, you can do that on the Friends page ––
+
+–– Because this page runs off ai tokens, if the query/upload feature return errors, the website is likely out of tokens. ––
