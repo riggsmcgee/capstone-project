@@ -1,0 +1,90 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int         @id @default(autoincrement())
+  username        String      @unique
+  passwordHash    String
+  role            Role        @relation(fields: [roleId], references: [id])
+  roleId          Int
+  queries         Query[]     @relation("UserQueries")
+  calendar        Calendar?   // Changed from calendars: Calendar[] to calendar: Calendar?
+  queriesInvolved QueryUser[] // Explicit many-to-many relation through QueryUser
+  friendships     Friendship[] @relation("UserFriendships")
+  friendOf        Friendship[] @relation("FriendOfFriendships")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  users User[]
+}
+
+model Query {
+  id          Int         @id @default(autoincrement())
+  user        User        @relation("UserQueries", fields: [userId], references: [id])
+  userId      Int
+  type        QueryType   @relation(fields: [typeId], references: [id])
+  typeId      Int
+  content     String?
+  result      String?
+  targetUsers QueryUser[] // Explicit many-to-many relation through QueryUser
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model QueryType {
+  id      Int     @id @default(autoincrement())
+  name    String  @unique
+  queries Query[]
+}
+
+model Calendar {
+  id           Int      @id @default(autoincrement())
+  user         User     @relation(fields: [userId], references: [id])
+  userId       Int      @unique // Enforce uniqueness to ensure one-to-one
+  availability String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+
+model QueryUser {
+  query    Query @relation(fields: [queryId], references: [id])
+  queryId  Int
+  user     User  @relation(fields: [userId], references: [id])
+  userId   Int
+
+  @@id([queryId, userId])
+}
+
+model Friendship {
+  id        Int      @id @default(autoincrement())
+  requester User     @relation("UserFriendships", fields: [requesterId], references: [id])
+  requesterId Int
+  receiver  User     @relation("FriendOfFriendships", fields: [receiverId], references: [id])
+  receiverId Int
+  status    FriendshipStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([requesterId, receiverId])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
