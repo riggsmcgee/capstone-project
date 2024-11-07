@@ -112,23 +112,23 @@ async function main() {
       prisma.calendar.create({
         data: {
           userId: user1.id,
-          availability: {
+          availability: JSON.stringify({
             monday: ['9:00-12:00', '13:00-17:00'],
             tuesday: ['10:00-15:00'],
             wednesday: ['9:00-17:00'],
             thursday: ['13:00-18:00'],
             friday: ['9:00-13:00'],
-          },
+          }),
         },
       }),
       prisma.calendar.create({
         data: {
           userId: user2.id,
-          availability: {
+          availability: JSON.stringify({
             monday: ['11:00-16:00'],
             wednesday: ['9:00-14:00'],
             friday: ['13:00-17:00'],
-          },
+          }),
         },
       }),
     ]);
