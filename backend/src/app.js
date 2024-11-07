@@ -14,7 +14,7 @@ const port = 3000;
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://your-production-frontend.com',
+  'https://calendar-service-8q9b.onrender.com',
 ];
 
 const corsOptions = {
